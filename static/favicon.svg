@@ -1,10 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Левая гантеля -->
-  <rect x="6" y="20" width="12" height="24" rx="3" fill="#667eea"/>
-  <rect x="4" y="24" width="6" height="16" rx="2" fill="#764ba2"/>
+  <!-- Левый блин -->
+  <rect x="2" y="14" width="16" height="36" rx="4" fill="#FFD700" stroke="#E74C3C" stroke-width="3"/>
+  <!-- Левый замок -->
+  <rect x="2" y="22" width="8" height="20" rx="2" fill="#E74C3C"/>
   <!-- Гриф -->
-  <rect x="18" y="29" width="28" height="6" rx="3" fill="#555"/>
-  <!-- Правая гантеля -->
-  <rect x="46" y="20" width="12" height="24" rx="3" fill="#667eea"/>
-  <rect x="54" y="24" width="6" height="16" rx="2" fill="#764ba2"/>
+  <rect x="18" y="27" width="28" height="10" rx="4" fill="#E74C3C"/>
+  <!-- Правый замок -->
+  <rect x="54" y="22" width="8" height="20" rx="2" fill="#E74C3C"/>
+  <!-- Правый блин -->
+  <rect x="46" y="14" width="16" height="36" rx="4" fill="#FFD700" stroke="#E74C3C" stroke-width="3"/>
 </svg>
