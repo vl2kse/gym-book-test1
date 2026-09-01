@@ -1,0 +1,38 @@
+{% extends 'workouts/base.html' %}
+
+{% block title %}GymBook - Упражнения{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Упражнения</h1>
+    <a href="{% url 'workouts:exercise_add' %}" class="btn btn-primary">+ Добавить</a>
+</div>
+
+{% if exercises %}
+<div class="row g-3">
+    {% for ex in exercises %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h5 class="mb-1"><a href="{% url 'workouts:exercise_progress' ex.id %}" class="text-decoration-none">{{ ex.name }}</a></h5>
+                    {% if ex.description %}
+                        <p class="text-muted small mb-0">{{ ex.description }}</p>
+                    {% endif %}
+                </div>
+                <form method="post" action="{% url 'workouts:exercise_delete' ex.id %}" onsubmit="return confirm('Удалить упражнение и все его подходы?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm">✕</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card p-4">
+    <p class="text-muted">Нет упражнений. <a href="{% url 'workouts:exercise_add' %}">Добавить первое</a></p>
+</div>
+{% endif %}
+
+{% endblock %}

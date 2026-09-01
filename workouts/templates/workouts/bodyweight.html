@@ -1,0 +1,102 @@
+{% extends 'workouts/base.html' %}
+
+{% block title %}GymBook - Вес тела{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Вес тела</h1>
+    <a href="{% url 'workouts:bodyweight_add' %}" class="btn btn-primary">+ Записать вес</a>
+</div>
+
+{% if stats %}
+<!-- Статистика -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.last }} кг</div>
+            <div class="stat-label">Текущий вес</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.min }} кг</div>
+            <div class="stat-label">Минимум</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.max }} кг</div>
+            <div class="stat-label">Максимум</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.change }} кг</div>
+            <div class="stat-label">Изменение</div>
+        </div>
+    </div>
+</div>
+
+<!-- График -->
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Динамика веса</h5>
+    <div class="chart-container" style="height:300px">
+        <canvas id="weightChart"></canvas>
+    </div>
+</div>
+
+<!-- Таблица -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Дата</th><th class="text-center">Вес (кг)</th><th></th></tr></thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr class="set-row">
+                    <td>{{ entry.date }}</td>
+                    <td class="text-center"><strong>{{ entry.weight }}</strong></td>
+                    <td>
+                        <form method="post" action="{% url 'workouts:bodyweight_delete' entry.id %}" onsubmit="return confirm('Удалить запись?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="card p-4">
+    <p class="text-muted">Нет записей. <a href="{% url 'workouts:bodyweight_add' %}">Записать вес</a></p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if stats %}
+<script>
+new Chart(document.getElementById('weightChart'), {
+    type: 'line',
+    data: {
+        labels: {{ dates|safe }},
+        datasets: [{
+            label: 'Вес (кг)',
+            data: {{ values|safe }},
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102,126,234,0.1)',
+            fill: true, tension: 0.3, pointRadius: 5,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: false } }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

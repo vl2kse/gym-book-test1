@@ -1,0 +1,137 @@
+{% extends 'workouts/base.html' %}
+
+{% block title %}GymBook - {{ exercise.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-0">{{ exercise.name }}</h1>
+        <a href="{% url 'workouts:exercise_list' %}" class="text-muted small">← Все упражнения</a>
+    </div>
+</div>
+
+{% if stats %}
+<!-- Статистика -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.max }}</div>
+            <div class="stat-label">Максимум повторений</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.min }}</div>
+            <div class="stat-label">Минимум</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.avg }}</div>
+            <div class="stat-label">Среднее</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.workouts }}</div>
+            <div class="stat-label">Тренировок</div>
+        </div>
+    </div>
+</div>
+
+<!-- Графики -->
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-3">
+            <h5 class="mb-3">Сумма повторений за тренировку</h5>
+            <div class="chart-container">
+                <canvas id="repsChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-3">
+            <h5 class="mb-3">Кол-во подходов за тренировку</h5>
+            <div class="chart-container">
+                <canvas id="setsChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card p-4">
+    <p class="text-muted">Нет данных по этому упражнению. <a href="{% url 'workouts:workout_new' %}">Добавьте тренировку</a>.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if stats %}
+<script>
+const labels = {{ daily_dates|safe }};
+const repsData = {{ daily_reps|safe }};
+const setsData = {{ daily_sets|safe }};
+const weightData = {{ daily_max_weight|safe }};
+
+// Определяем, есть ли вес
+const hasWeight = weightData.some(w => w > 0);
+
+// График повторений
+new Chart(document.getElementById('repsChart'), {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{
+            label: 'Сумма повторений',
+            data: repsData,
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102,126,234,0.1)',
+            fill: true, tension: 0.3, pointRadius: 5,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+
+// График подходов (+ вес если есть)
+const setsDatasets = [{
+    label: 'Подходы',
+    data: setsData,
+    borderColor: '#764ba2',
+    backgroundColor: 'rgba(118,75,162,0.1)',
+    fill: true, tension: 0.3, pointRadius: 5,
+    yAxisID: 'y',
+}];
+
+if (hasWeight) {
+    setsDatasets.push({
+        label: 'Макс. вес (кг)',
+        data: weightData,
+        borderColor: '#e74c3c',
+        backgroundColor: 'rgba(231,76,60,0.1)',
+        fill: false, tension: 0.3, pointRadius: 5,
+        yAxisID: 'y1',
+    });
+}
+
+new Chart(document.getElementById('setsChart'), {
+    type: 'line',
+    data: { labels, datasets: setsDatasets },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            y: { beginAtZero: true, position: 'left' },
+            {% if hasWeight %}
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } },
+            {% endif %}
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends 'workouts/base.html' %}
+
+{% block title %}GymBook - Новая тренировка{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Новая тренировка</h1>
+
+{% if exercises %}
+<div class="card p-4">
+    <form id="workoutForm" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="sets_data" id="setsData">
+
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label class="form-label">Дата</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-md-9">
+                <label class="form-label">Заметки</label>
+                <input type="text" name="notes" class="form-control" placeholder="Самочувствие, длительность...">
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Список подходов -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Подходы</h5>
+            <button type="button" class="btn btn-primary" onclick="openAddModal()">+ Добавить подход</button>
+        </div>
+
+        <table class="table" id="setsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Упражнение</th>
+                    <th class="text-center">Повторения</th>
+                    <th class="text-center">Вес (кг)</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <p id="emptyMsg" class="text-muted">Нет подходов. Нажмите "Добавить подход".</p>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary btn-lg">Сохранить тренировку</button>
+        </div>
+    </form>
+</div>
+{% else %}
+<div class="card p-4">
+    <p class="text-muted">Сначала добавьте упражнения в <a href="{% url 'workouts:exercise_list' %}">справочник</a>.</p>
+</div>
+{% endif %}
+
+<!-- Модалка добавления подхода -->
+<div class="modal fade" id="addSetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить подход</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Упражнение</label>
+                    <select id="modalExercise" class="form-select" required>
+                        <option value="">Выберите...</option>
+                        {% for ex in exercises %}
+                        <option value="{{ ex.id }}">{{ ex.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Повторения</label>
+                    <input type="number" id="modalReps" class="form-control" min="1" value="10" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Вес (кг)</label>
+                    <input type="number" id="modalWeight" class="form-control" min="0" step="0.5" value="0">
+                    <div class="form-text">0 = упражнение с собственным весом</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="addSet()">Добавить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const exercises = {
+    {% for ex in exercises %}
+    "{{ ex.id }}": "{{ ex.name }}",
+    {% endfor %}
+};
+let sets = [];
+let modal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    modal = new bootstrap.Modal(document.getElementById('addSetModal'));
+});
+
+function openAddModal() {
+    document.getElementById('modalExercise').value = '';
+    document.getElementById('modalReps').value = '10';
+    document.getElementById('modalWeight').value = '0';
+    modal.show();
+}
+
+function addSet() {
+    const exerciseId = document.getElementById('modalExercise').value;
+    const reps = parseInt(document.getElementById('modalReps').value);
+    const weight = parseFloat(document.getElementById('modalWeight').value) || 0;
+
+    if (!exerciseId || !reps) return;
+
+    sets.push({ exercise_id: exerciseId, reps, weight });
+    modal.hide();
+    renderSets();
+}
+
+function removeSet(index) {
+    sets.splice(index, 1);
+    renderSets();
+}
+
+function renderSets() {
+    const tbody = document.querySelector('#setsTable tbody');
+    const emptyMsg = document.getElementById('emptyMsg');
+
+    if (sets.length === 0) {
+        tbody.innerHTML = '';
+        emptyMsg.style.display = 'block';
+        return;
+    }
+
+    emptyMsg.style.display = 'none';
+    tbody.innerHTML = sets.map((s, i) => `
+        <tr class="set-row">
+            <td>${i + 1}</td>
+            <td>${exercises[s.exercise_id] || 'Неизвестно'}</td>
+            <td class="text-center"><strong>${s.reps}</strong></td>
+            <td class="text-center">${s.weight > 0 ? s.weight + ' кг' : '-'}</td>
+            <td>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeSet(${i})">✕</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+document.getElementById('workoutForm').addEventListener('submit', function(e) {
+    document.getElementById('setsData').value = JSON.stringify(sets);
+});
+
+// Enter в модалке = добавить
+['modalReps', 'modalWeight'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); addSet(); }
+    });
+});
+</script>
+{% endblock %}
