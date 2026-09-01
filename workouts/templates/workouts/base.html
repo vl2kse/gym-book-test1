@@ -20,7 +20,7 @@
         .btn-primary:hover { opacity: 0.9; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .set-row { transition: background-color 0.15s; }
         .set-row:hover { background-color: #f0f2ff; }
-        .chart-container { position: relative; height: 250px; }
+        .chart-container { position: relative; height: 300px; }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -34,8 +34,8 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Дашборд</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'workout_new' %}">+ Тренировка</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'workout_history' %}">История</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'set_add' %}">+ Подходы</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'set_history' %}">История</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'exercise_list' %}">Упражнения</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'bodyweight_list' %}">Вес тела</a></li>
                 </ul>

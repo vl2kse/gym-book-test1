@@ -14,33 +14,20 @@ class Exercise(models.Model):
         return self.name
 
 
-class Workout(models.Model):
-    date = models.DateField(verbose_name="Дата")
-    notes = models.TextField(blank=True, default="", verbose_name="Заметки")
-
-    class Meta:
-        ordering = ["-date"]
-        verbose_name = "Тренировка"
-        verbose_name_plural = "Тренировки"
-
-    def __str__(self):
-        return f"Тренировка от {self.date}"
-
-
 class Set(models.Model):
-    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, related_name="sets", verbose_name="Тренировка")
+    date = models.DateField(verbose_name="Дата")
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name="sets", verbose_name="Упражнение")
     reps = models.PositiveIntegerField(verbose_name="Повторения")
     weight = models.DecimalField(max_digits=6, decimal_places=2, default=0, verbose_name="Вес (кг)")
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["-date", "id"]
         verbose_name = "Подход"
         verbose_name_plural = "Подходы"
 
     def __str__(self):
-        weight_str = f" × {self.weight} кг" if self.weight > 0 else ""
-        return f"{self.exercise.name}: {self.reps} раз{weight_str}"
+        weight_str = f" x {self.weight} кг" if self.weight > 0 else ""
+        return f"{self.date} | {self.exercise.name}: {self.reps} раз{weight_str}"
 
 
 class BodyWeight(models.Model):

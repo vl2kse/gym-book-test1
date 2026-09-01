@@ -1,10 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 import json
+from collections import OrderedDict
+from datetime import timedelta
 
-from .models import Exercise, Workout, Set, BodyWeight
+from .models import Exercise, Set, BodyWeight
 
 
 # ============================================================
@@ -12,23 +12,39 @@ from .models import Exercise, Workout, Set, BodyWeight
 # ============================================================
 
 def dashboard(request):
-    total_workouts = Workout.objects.count()
     total_sets = Set.objects.count()
     exercises = Exercise.objects.all()
 
-    last_workout = Workout.objects.first()
-    last_sets = []
-    if last_workout:
-        last_sets = last_workout.sets.select_related("exercise").all()
+    today = timezone.now().date()
+    today_sets = Set.objects.filter(date=today).select_related("exercise")
+    today_total = sum(s.reps for s in today_sets)
 
-    # Статистика по каждому упражнению (последние 7 записей)
-    exercise_stats = []
-    for ex in exercises:
-        sets = Set.objects.filter(exercise=ex).order_by("-workout__date")[:7]
-        if sets.exists():
-            dates = [s.workout.date.isoformat() for s in reversed(sets)]
-            reps = [s.reps for s in reversed(sets)]
-            exercise_stats.append({"exercise": ex, "dates": dates, "reps": reps})
+    # График: по горизонтали даты, по вертикали сумма повторений за день, по каждому упражнению
+    all_dates = Set.objects.dates('date', 'day', order='ASC')
+    date_labels = [d.isoformat() for d in all_dates]
+
+    chart_datasets = []
+    colors = ['#667eea', '#764ba2', '#e74c3c', '#2ecc71', '#f39c12', '#1abc9c', '#e67e22', '#3498db']
+
+    for i, ex in enumerate(exercises):
+        # Сумма повторений по дням
+        daily = OrderedDict()
+        for d in all_dates:
+            daily[d] = 0
+        sets_ex = Set.objects.filter(exercise=ex).values('date').annotate(total=models.Sum('reps'))
+        for s in sets_ex:
+            if s['date'] in daily:
+                daily[s['date']] = s['total'] or 0
+
+        chart_datasets.append({
+            'label': ex.name,
+            'data': list(daily.values()),
+            'borderColor': colors[i % len(colors)],
+            'backgroundColor': colors[i % len(colors)] + '20',
+            'fill': False,
+            'tension': 0.3,
+            'pointRadius': 4,
+        })
 
     # Вес тела (последние 14 записей)
     weight_entries = BodyWeight.objects.order_by("date")[:14]
@@ -36,11 +52,13 @@ def dashboard(request):
     weight_values = [float(w.weight) for w in weight_entries]
 
     context = {
-        "total_workouts": total_workouts,
         "total_sets": total_sets,
-        "last_workout": last_workout,
-        "last_sets": last_sets,
-        "exercise_stats": exercise_stats,
+        "today_sets": today_sets,
+        "today_total": today_total,
+        "today": today,
+        "exercises": exercises,
+        "date_labels": json.dumps(date_labels),
+        "chart_datasets": json.dumps(chart_datasets),
         "weight_dates": json.dumps(weight_dates),
         "weight_values": json.dumps(weight_values),
     }
@@ -48,19 +66,16 @@ def dashboard(request):
 
 
 # ============================================================
-# Новая тренировка
+# Добавить подходы
 # ============================================================
 
-def workout_new(request):
+def set_add(request):
     if request.method == "POST":
         date_str = request.POST.get("date", "")
-        notes = request.POST.get("notes", "")
         sets_data = request.POST.get("sets_data", "[]")
 
         from datetime import datetime
-        workout_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else timezone.now().date()
-
-        workout = Workout.objects.create(date=workout_date, notes=notes)
+        set_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else timezone.now().date()
 
         sets = json.loads(sets_data)
         for s in sets:
@@ -69,7 +84,7 @@ def workout_new(request):
             weight = s.get("weight", 0)
             if exercise_id and reps > 0:
                 Set.objects.create(
-                    workout=workout,
+                    date=set_date,
                     exercise_id=exercise_id,
                     reps=reps,
                     weight=weight,
@@ -79,27 +94,27 @@ def workout_new(request):
 
     exercises = Exercise.objects.all()
     today = timezone.now().strftime("%Y-%m-%d")
-    return render(request, "workouts/workout_new.html", {"exercises": exercises, "today": today})
+    return render(request, "workouts/set_add.html", {"exercises": exercises, "today": today})
 
 
 # ============================================================
-# История тренировок
+# Удаление подхода
 # ============================================================
 
-def workout_history(request):
-    workouts = Workout.objects.prefetch_related("sets__exercise").all()
-    return render(request, "workouts/workout_history.html", {"workouts": workouts})
-
-
-# ============================================================
-# Удаление тренировки
-# ============================================================
-
-def workout_delete(request, pk):
-    workout = get_object_or_404(Workout, pk=pk)
+def set_delete(request, pk):
+    s = get_object_or_404(Set, pk=pk)
     if request.method == "POST":
-        workout.delete()
-    return redirect("workout_history")
+        s.delete()
+    return redirect("dashboard")
+
+
+# ============================================================
+# История (все подходы по датам)
+# ============================================================
+
+def set_history(request):
+    sets = Set.objects.select_related("exercise").all()
+    return render(request, "workouts/set_history.html", {"sets": sets})
 
 
 # ============================================================
@@ -134,25 +149,12 @@ def exercise_delete(request, pk):
 
 def exercise_progress(request, pk):
     exercise = get_object_or_404(Exercise, pk=pk)
-    sets = Set.objects.filter(exercise=exercise).select_related("workout").order_by("workout__date", "id")
+    sets = Set.objects.filter(exercise=exercise).order_by("date", "id")
 
-    dates = []
-    reps_list = []
-    weights = []
-    seen_dates = set()
-
-    for s in sets:
-        d = s.workout.date.isoformat()
-        dates.append(d)
-        reps_list.append(s.reps)
-        weights.append(float(s.weight))
-        seen_dates.add(d)
-
-    # Агрегация по дате (сумма повторений за тренировку)
-    from collections import OrderedDict
+    # Агрегация по дате
     daily = OrderedDict()
     for s in sets:
-        d = s.workout.date
+        d = s.date
         if d not in daily:
             daily[d] = {"total_reps": 0, "sets_count": 0, "max_weight": 0}
         daily[d]["total_reps"] += s.reps
@@ -174,7 +176,7 @@ def exercise_progress(request, pk):
         stats["min"] = min(all_reps)
         stats["avg"] = round(sum(all_reps) / len(all_reps), 1)
         stats["total"] = sum(all_reps)
-        stats["workouts"] = len(seen_dates)
+        stats["days"] = len(daily)
 
     context = {
         "exercise": exercise,

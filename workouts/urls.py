@@ -1,15 +1,14 @@
 from django.urls import path
 from . import views
 
-
 urlpatterns = [
     # Дашборд
     path("", views.dashboard, name="dashboard"),
 
-    # Тренировки
-    path("workout/new/", views.workout_new, name="workout_new"),
-    path("workout/history/", views.workout_history, name="workout_history"),
-    path("workout/<int:pk>/delete/", views.workout_delete, name="workout_delete"),
+    # Подходы
+    path("set/add/", views.set_add, name="set_add"),
+    path("set/<int:pk>/delete/", views.set_delete, name="set_delete"),
+    path("set/history/", views.set_history, name="set_history"),
 
     # Упражнения
     path("exercises/", views.exercise_list, name="exercise_list"),

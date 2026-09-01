@@ -1,0 +1,47 @@
+{% extends 'workouts/base.html' %}
+
+{% block title %}GymBook - История{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">История подходов</h1>
+    <a href="{% url 'set_add' %}" class="btn btn-primary">+ Добавить подходы</a>
+</div>
+
+{% if sets %}
+{% regroup sets by date as date_groups %}
+{% for group in date_groups %}
+<div class="card mb-3">
+    <div class="card-header">
+        <strong>{{ group.grouper }}</strong>
+        <span class="badge bg-primary ms-2">{{ group.list|length }} подходов</span>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Упражнение</th><th class="text-center">Повт.</th><th class="text-center">Вес</th><th></th></tr></thead>
+            <tbody>
+                {% for s in group.list %}
+                <tr class="set-row">
+                    <td><a href="{% url 'exercise_progress' s.exercise.id %}">{{ s.exercise.name }}</a></td>
+                    <td class="text-center">{{ s.reps }}</td>
+                    <td class="text-center">{% if s.weight > 0 %}{{ s.weight }} кг{% else %}-{% endif %}</td>
+                    <td>
+                        <form method="post" action="{% url 'set_delete' s.id %}" onsubmit="return confirm('Удалить подход?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card p-4">
+    <p class="text-muted">Подходов пока нет. <a href="{% url 'set_add' %}">Добавить</a></p>
+</div>
+{% endif %}
+
+{% endblock %}
