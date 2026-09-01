@@ -77,11 +77,6 @@ def dashboard(request):
             'fill': False, 'tension': 0.3, 'pointRadius': 4,
         })
 
-    # Вес тела (последние 14 записей)
-    weight_entries = BodyWeight.objects.order_by("date")[:14]
-    weight_dates = [w.date.isoformat() for w in weight_entries]
-    weight_values = [float(w.weight) for w in weight_entries]
-
     context = {
         "total_sets": total_sets,
         "today_sets": today_sets,
@@ -92,8 +87,6 @@ def dashboard(request):
         "bw_datasets": json.dumps(bw_datasets),
         "wt_date_labels": json.dumps(wt_date_labels),
         "wt_datasets": json.dumps(wt_datasets),
-        "weight_dates": json.dumps(weight_dates),
-        "weight_values": json.dumps(weight_values),
     }
     return render(request, "workouts/dashboard.html", context)
 
