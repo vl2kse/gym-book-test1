@@ -73,40 +73,92 @@
     position: relative;
   }
 
-  /* ---- модальное окно настроек ---- */
-  .timer-settings-modal .modal-content {
+  /* ---- мигающая фавиконка ---- */
+  @keyframes favicon-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.2; }
+  }
+  #faviconDynamic {
+    transition: none;
+  }
+  #faviconDynamic.blink {
+    animation: favicon-blink 2s ease-in-out infinite;
+  }
+
+  /* ---- модальные окна ---- */
+  .timer-modal .modal-content {
     border-radius: 16px;
     border: none;
     box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   }
-  .timer-settings-modal .modal-header {
+  .timer-modal .modal-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
     border-radius: 16px 16px 0 0;
     border-bottom: none;
   }
-  .timer-settings-modal .btn-close {
+  .timer-modal .btn-close {
     filter: brightness(0) invert(1);
   }
-  .timer-settings-modal .modal-body label {
+  .timer-modal .modal-body label {
     font-weight: 600;
     color: #333;
   }
   .timer-history-row {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    padding: 0.4rem 0;
+    padding: 0.5rem 0;
     border-bottom: 1px solid #eee;
     font-size: 0.9rem;
+    gap: 0.5rem;
   }
   .timer-history-row:last-child { border-bottom: none; }
   .timer-history-row .dur {
     font-weight: 600;
     color: #667eea;
+    white-space: nowrap;
+  }
+  .timer-history-row .session-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .timer-history-row .session-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .timer-history-row .session-actions button {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: #666;
+    transition: all 0.15s;
+    padding: 0;
+  }
+  .timer-history-row .session-actions .btn-edit:hover {
+    background: #eef;
+    border-color: #667eea;
+    color: #667eea;
+  }
+  .timer-history-row .session-actions .btn-del:hover {
+    background: #fee;
+    border-color: #dc3545;
+    color: #dc3545;
   }
 </style>
 
-<!-- Виджет таймера -->
+<!-- Динамическая фавиконка (заменяет статическую) -->
+<link id="faviconDynamic" rel="icon" type="image/svg+xml" href="">
+
+<!-- Виджет таймера (десктоп) -->
 <div class="timer-wrapper d-none d-lg-flex justify-content-center" style="position:absolute; left:50%; transform:translateX(-50%);">
   <div class="timer-widget" id="timerWidget">
     <button class="timer-btn" id="timerToggle" title="Старт / Стоп">
@@ -136,7 +188,7 @@
 </div>
 
 <!-- Модальное окно настроек -->
-<div class="modal fade timer-settings-modal" id="timerSettingsModal" tabindex="-1">
+<div class="modal fade timer-modal" id="timerSettingsModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -160,85 +212,138 @@
   </div>
 </div>
 
+<!-- Модальное окно редактирования сессии -->
+<div class="modal fade timer-modal" id="timerEditModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать сессию</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editSessionId">
+        <div class="mb-3">
+          <label for="editStartTime" class="form-label">Начало</label>
+          <input type="datetime-local" class="form-control" id="editStartTime">
+        </div>
+        <div class="mb-3">
+          <label for="editEndTime" class="form-label">Конец</label>
+          <input type="datetime-local" class="form-control" id="editEndTime">
+          <div class="form-text">Оставьте пустым, если сессия ещё идёт</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-primary" id="saveEditBtn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
-  const API = {
+  // ---------- SVG-иконки для фавиконки ----------
+  var SVG_DUMBBELL = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="18" y="4" width="10" height="22" rx="3" fill="%23f59e0b" stroke="%23dc2626" stroke-width="2.5"/><rect x="36" y="4" width="10" height="22" rx="3" fill="%23f59e0b" stroke="%23dc2626" stroke-width="2.5"/><rect x="8" y="10" width="10" height="10" rx="2" fill="%23ef4444"/><rect x="46" y="10" width="10" height="10" rx="2" fill="%23ef4444"/><rect x="28" y="18" width="8" height="28" rx="2" fill="%236366f1"/></svg>';
+  var SVG_GREEN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="%2322c55e" stroke="%2316a34a" stroke-width="3"/></svg>';
+
+  var faviconEl = document.getElementById('faviconDynamic');
+
+  function setFaviconRunning() {
+    faviconEl.href = 'data:image/svg+xml,' + encodeURIComponent(SVG_GREEN);
+    faviconEl.classList.remove('blink');
+  }
+  function setFaviconIdle() {
+    faviconEl.href = 'data:image/svg+xml,' + encodeURIComponent(SVG_DUMBBELL);
+    faviconEl.classList.add('blink');
+  }
+
+  // ---------- API ----------
+  var API = {
     status:   '{% url "timer_status" %}',
     start:    '{% url "timer_start" %}',
     stop:     '{% url "timer_stop" %}',
     settings: '{% url "timer_settings_get" %}',
     saveSettings: '{% url "timer_settings_save" %}',
     history:  '{% url "timer_history" %}',
+    sessionEdit:   '{% url "session_edit" 0 %}'.replace('/0/', '/'),
+    sessionDelete: '{% url "session_delete" 0 %}'.replace('/0/', '/'),
   };
 
-  let isRunning = false;
-  let elapsed = 0;
-  let todayTotal = 0;
-  let todayGoal = 28800; // 8ч в секундах
-  let tickInterval = null;
+  var isRunning = false;
+  var elapsed = 0;
+  var todayTotal = 0;
+  var todayGoal = 28800;
+  var tickInterval = null;
 
-  // DOM-элементы (десктоп)
-  const clockEl     = document.getElementById('timerClock');
-  const totalEl     = document.getElementById('timerTotal');
-  const toggleBtn   = document.getElementById('timerToggle');
-  const toggleIcon  = document.getElementById('toggleIcon');
-  const settingsBtn = document.getElementById('timerSettingsBtn');
-  const progressEl  = document.getElementById('timerProgress');
-  // мобильные
-  const clockM      = document.getElementById('timerClockMobile');
-  const totalM      = document.getElementById('timerTotalMobile');
-  const toggleBtnM  = document.getElementById('timerToggleMobile');
-  const toggleIconM = document.getElementById('toggleIconMobile');
-  const settingsBtnM= document.getElementById('timerSettingsBtnMobile');
-  // модалка
-  const goalInput   = document.getElementById('dailyGoalInput');
-  const saveBtn     = document.getElementById('saveSettingsBtn');
-  const historyList = document.getElementById('timerHistoryList');
-  let settingsModal;
+  // DOM
+  var clockEl     = document.getElementById('timerClock');
+  var totalEl     = document.getElementById('timerTotal');
+  var toggleBtn   = document.getElementById('timerToggle');
+  var toggleIcon  = document.getElementById('toggleIcon');
+  var settingsBtn = document.getElementById('timerSettingsBtn');
+  var progressEl  = document.getElementById('timerProgress');
+  var clockM      = document.getElementById('timerClockMobile');
+  var totalM      = document.getElementById('timerTotalMobile');
+  var toggleBtnM  = document.getElementById('timerToggleMobile');
+  var toggleIconM = document.getElementById('toggleIconMobile');
+  var settingsBtnM= document.getElementById('timerSettingsBtnMobile');
+  var goalInput   = document.getElementById('dailyGoalInput');
+  var saveBtn     = document.getElementById('saveSettingsBtn');
+  var historyList = document.getElementById('timerHistoryList');
+  var editModal, settingsModal;
+  var editIdEl    = document.getElementById('editSessionId');
+  var editStartEl = document.getElementById('editStartTime');
+  var editEndEl   = document.getElementById('editEndTime');
+  var saveEditBtn = document.getElementById('saveEditBtn');
 
   // ---------- утилиты ----------
 
   function fmt(sec) {
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = Math.floor(sec % 60);
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = Math.floor(sec % 60);
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
   function fmtShort(sec) {
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    if (h > 0) return h + 'ч ' + String(m).padStart(2,'0') + 'м';
-    return m + 'м ' + String(Math.floor(sec % 60)).padStart(2,'0') + 'с';
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    if (h > 0) return h + '\u0447 ' + String(m).padStart(2,'0') + '\u043c';
+    return m + '\u043c ' + String(Math.floor(sec % 60)).padStart(2,'0') + '\u0441';
+  }
+  function getCsrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
   }
 
   // ---------- рендер ----------
 
   function render() {
-    const display = fmt(elapsed);
-    const totalDisplay = fmtShort(todayTotal);
+    var display = fmt(elapsed);
+    var totalDisplay = fmtShort(todayTotal);
     clockEl.textContent = display;
-    totalEl.textContent  = 'Сегодня: ' + totalDisplay;
+    totalEl.textContent  = '\u0421\u0435\u0433\u043e\u0434\u043d\u044f: ' + totalDisplay;
     clockM.textContent  = display;
-    totalM.textContent  = 'Сегодня: ' + totalDisplay;
+    totalM.textContent  = '\u0421\u0435\u0433\u043e\u0434\u043d\u044f: ' + totalDisplay;
 
     if (isRunning) {
-      toggleIcon.textContent  = '\u25A0';   // ■
+      toggleIcon.textContent  = '\u25A0';
       toggleIconM.textContent = '\u25A0';
       toggleBtn.classList.add('btn-stop');
       toggleBtnM.classList.add('btn-stop');
       clockEl.classList.add('running');
       clockM.classList.add('running');
+      setFaviconRunning();
     } else {
-      toggleIcon.textContent  = '\u25B6';   // ▶
+      toggleIcon.textContent  = '\u25B6';
       toggleIconM.textContent = '\u25B6';
       toggleBtn.classList.remove('btn-stop');
       toggleBtnM.classList.remove('btn-stop');
       clockEl.classList.remove('running');
       clockM.classList.remove('running');
+      setFaviconIdle();
     }
 
-    // прогресс-бар
-    const pct = Math.min((todayTotal / todayGoal) * 100, 100);
+    var pct = Math.min((todayTotal / todayGoal) * 100, 100);
     progressEl.style.width = pct + '%';
   }
 
@@ -259,95 +364,146 @@
 
   // ---------- API ----------
 
-  async function fetchStatus() {
-    try {
-      const r = await fetch(API.status);
-      const d = await r.json();
+  function fetchStatus() {
+    fetch(API.status).then(function(r) { return r.json(); }).then(function(d) {
       isRunning  = d.is_running;
       elapsed    = d.elapsed;
       todayTotal = d.today_total;
       todayGoal  = d.today_goal;
       render();
       if (isRunning) startTick(); else stopTick();
-    } catch(e) { console.error('timer status error', e); }
+    }).catch(function(e) { console.error('timer status error', e); });
   }
 
-  async function doStart() {
-    try {
-      const r = await fetch(API.start, {method:'POST', headers:{'X-CSRFToken': getCsrf()}});
-      if (!r.ok) return;
-      const d = await r.json();
+  function doStart() {
+    fetch(API.start, {method:'POST', headers:{'X-CSRFToken': getCsrf()}}).then(function(r) { return r.json(); }).then(function(d) {
       isRunning = d.is_running;
       elapsed   = d.elapsed;
       todayTotal= d.today_total;
       render(); startTick();
-    } catch(e) { console.error('timer start error', e); }
+    }).catch(function(e) { console.error('timer start error', e); });
   }
 
-  async function doStop() {
-    try {
-      const r = await fetch(API.stop, {method:'POST', headers:{'X-CSRFToken': getCsrf()}});
-      if (!r.ok) return;
-      const d = await r.json();
+  function doStop() {
+    fetch(API.stop, {method:'POST', headers:{'X-CSRFToken': getCsrf()}}).then(function(r) { return r.json(); }).then(function(d) {
       isRunning = d.is_running;
       elapsed   = 0;
       todayTotal= d.today_total;
       render(); stopTick();
-    } catch(e) { console.error('timer stop error', e); }
-  }
-
-  function getCsrf() {
-    const m = document.cookie.match(/csrftoken=([^;]+)/);
-    return m ? m[1] : '';
+    }).catch(function(e) { console.error('timer stop error', e); });
   }
 
   // ---------- настройки ----------
 
-  async function loadSettings() {
-    try {
-      const r = await fetch(API.settings);
-      const d = await r.json();
+  function loadSettings() {
+    fetch(API.settings).then(function(r) { return r.json(); }).then(function(d) {
       goalInput.value = d.daily_goal_hours;
       todayGoal = d.daily_goal_hours * 3600;
-    } catch(e) {}
+    }).catch(function() {});
   }
 
-  async function saveSettings() {
-    try {
-      const r = await fetch(API.saveSettings, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json', 'X-CSRFToken': getCsrf()},
-        body: JSON.stringify({daily_goal_hours: parseFloat(goalInput.value)})
-      });
+  function saveSettings() {
+    fetch(API.saveSettings, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-CSRFToken': getCsrf()},
+      body: JSON.stringify({daily_goal_hours: parseFloat(goalInput.value)})
+    }).then(function(r) {
       if (r.ok) {
         todayGoal = parseFloat(goalInput.value) * 3600;
         render();
         settingsModal.hide();
       }
-    } catch(e) {}
+    }).catch(function() {});
   }
 
-  async function loadHistory() {
-    try {
-      const r = await fetch(API.history);
-      const d = await r.json();
+  function loadHistory() {
+    fetch(API.history).then(function(r) { return r.json(); }).then(function(d) {
       if (!d.sessions.length) {
         historyList.innerHTML = '<small class="text-muted">Нет записей</small>';
         return;
       }
       historyList.innerHTML = d.sessions.map(function(s) {
-        const dur = fmtShort(s.duration);
-        const end = s.end || '...';
-        const running = s.is_running ? ' <span class="badge bg-success">активна</span>' : '';
-        return '<div class="timer-history-row">'
-          + '<span>' + s.date + ' ' + s.start + ' – ' + end + running + '</span>'
-          + '<span class="dur">' + dur + '</span>'
-          + '</div>';
+        var dur = fmtShort(s.duration);
+        var end = s.end || '...';
+        var badge = s.is_running ? ' <span class="badge bg-success">активна</span>' : '';
+        return '<div class="timer-history-row" data-id="' + s.id + '">
+'
+          + '<span class="session-info">' + s.date + ' ' + s.start + ' &ndash; ' + end + badge + '</span>
+'
+          + '<span class="dur">' + dur + '</span>
+'
+          + '<span class="session-actions">'
+          + '<button class="btn-edit" title="Редактировать">&#9998;</button>'
+          + '<button class="btn-del" title="Удалить">&#128465;</button>'
+          + '</span></div>';
       }).join('');
-    } catch(e) {
+    }).catch(function() {
       historyList.innerHTML = '<small class="text-danger">Ошибка загрузки</small>';
-    }
+    });
   }
+
+  // ---------- редактирование сессии ----------
+
+  function openEditModal(id, startFull, endFull) {
+    editIdEl.value = id;
+    editStartEl.value = startFull || '';
+    editEndEl.value = endFull || '';
+    editModal.show();
+  }
+
+  function saveEdit() {
+    var id = editIdEl.value;
+    fetch(API.sessionEdit + id + '/edit/', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-CSRFToken': getCsrf()},
+      body: JSON.stringify({
+        start_time: editStartEl.value,
+        end_time: editEndEl.value
+      })
+    }).then(function(r) {
+      if (r.ok) {
+        editModal.hide();
+        loadHistory();
+        fetchStatus();
+      }
+    }).catch(function() {});
+  }
+
+  function deleteSession(id) {
+    if (!confirm('Удалить эту сессию?')) return;
+    fetch(API.sessionDelete + id + '/delete/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrf()}
+    }).then(function(r) {
+      if (r.ok) {
+        loadHistory();
+        fetchStatus();
+      }
+    }).catch(function() {});
+  }
+
+  // ---------- делегирование событий для истории ----------
+
+  historyList.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var row = btn.closest('.timer-history-row');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+
+    // найдём данные сессии из поля start_full / end_full
+    // перезагружаем историю чтобы получить полные данные
+    fetch(API.history).then(function(r) { return r.json(); }).then(function(d) {
+      var session = d.sessions.find(function(s) { return String(s.id) === id; });
+      if (!session) return;
+
+      if (btn.classList.contains('btn-edit')) {
+        openEditModal(session.id, session.start_full, session.end_full);
+      } else if (btn.classList.contains('btn-del')) {
+        deleteSession(session.id);
+      }
+    });
+  });
 
   // ---------- события ----------
 
@@ -355,28 +511,26 @@
   toggleBtn.addEventListener('click', onToggle);
   toggleBtnM.addEventListener('click', onToggle);
 
-  settingsBtn.addEventListener('click', function() {
+  function openSettings() {
     loadSettings();
     loadHistory();
     settingsModal.show();
-  });
-  settingsBtnM.addEventListener('click', function() {
-    loadSettings();
-    loadHistory();
-    settingsModal.show();
-  });
+  }
+  settingsBtn.addEventListener('click', openSettings);
+  settingsBtnM.addEventListener('click', openSettings);
   saveBtn.addEventListener('click', saveSettings);
+  saveEditBtn.addEventListener('click', saveEdit);
 
   // ---------- init ----------
 
-  // ждём Bootstrap JS
-  function initModal() {
+  function initModals() {
     settingsModal = new bootstrap.Modal(document.getElementById('timerSettingsModal'));
+    editModal = new bootstrap.Modal(document.getElementById('timerEditModal'));
   }
   if (typeof bootstrap !== 'undefined') {
-    initModal();
+    initModals();
   } else {
-    window.addEventListener('load', initModal);
+    window.addEventListener('load', initModals);
   }
 
   fetchStatus();

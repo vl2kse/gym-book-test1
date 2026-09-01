@@ -4,7 +4,7 @@ from django.utils.timezone import now, localtime
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.db import transaction
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 
 from .models import WorkSession, TimerSettings
 
@@ -117,10 +117,59 @@ def timer_history(request):
         lt = localtime(s.start_time)
         end_str = localtime(s.end_time).strftime('%H:%M') if s.end_time else None
         data.append({
+            'id': s.id,
             'date': lt.strftime('%d.%m'),
             'start': lt.strftime('%H:%M'),
+            'start_full': lt.strftime('%Y-%m-%dT%H:%M'),
             'end': end_str,
+            'end_full': localtime(s.end_time).strftime('%Y-%m-%dT%H:%M') if s.end_time else '',
             'duration': round(s.duration_seconds, 1),
             'is_running': s.is_running,
         })
     return JsonResponse({'sessions': data})
+
+
+@require_POST
+@csrf_exempt
+def session_edit(request, pk):
+    """Редактировать время начала/конца сессии."""
+    try:
+        session = WorkSession.objects.get(pk=pk)
+    except WorkSession.DoesNotExist:
+        return JsonResponse({'error': 'Сессия не найдена'}, status=404)
+
+    data = json.loads(request.body)
+
+    start_str = data.get('start_time')
+    end_str = data.get('end_time')
+
+    if start_str:
+        try:
+            session.start_time = datetime.fromisoformat(start_str)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Неверный формат начала'}, status=400)
+
+    if end_str:
+        if end_str == '':
+            session.end_time = None
+        else:
+            try:
+                session.end_time = datetime.fromisoformat(end_str)
+            except (ValueError, TypeError):
+                return JsonResponse({'error': 'Неверный формат конца'}, status=400)
+
+    session.save()
+    return JsonResponse({'ok': True})
+
+
+@require_POST
+@csrf_exempt
+def session_delete(request, pk):
+    """Удалить сессию."""
+    try:
+        session = WorkSession.objects.get(pk=pk)
+    except WorkSession.DoesNotExist:
+        return JsonResponse({'error': 'Сессия не найдена'}, status=404)
+
+    session.delete()
+    return JsonResponse({'ok': True})

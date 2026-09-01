@@ -8,4 +8,6 @@ urlpatterns = [
     path('settings/', views.timer_settings_get, name='timer_settings_get'),
     path('settings/save/', views.timer_settings_save, name='timer_settings_save'),
     path('history/', views.timer_history, name='timer_history'),
+    path('session/<int:pk>/edit/', views.session_edit, name='session_edit'),
+    path('session/<int:pk>/delete/', views.session_delete, name='session_delete'),
 ]
