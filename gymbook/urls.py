@@ -6,4 +6,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(url='/workouts/', permanent=False)),
     path('workouts/', include('workouts.urls')),
+    path('timer/', include('work_timer.urls')),
 ]

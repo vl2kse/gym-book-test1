@@ -1,0 +1,384 @@
+{% load static %}
+
+<style>
+  /* ---- таймер в шапке ---- */
+  .timer-widget {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50px;
+    padding: 4px 10px;
+    backdrop-filter: blur(4px);
+    font-size: 0.85rem;
+    color: #fff;
+    user-select: none;
+  }
+  .timer-widget .timer-clock {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    min-width: 54px;
+    text-align: center;
+  }
+  .timer-widget .timer-clock.running {
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { text-shadow: 0 0 4px rgba(255,255,255,0.3); }
+    50%      { text-shadow: 0 0 12px rgba(255,255,255,0.7); }
+  }
+  .timer-widget .timer-total {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    border-left: 1px solid rgba(255,255,255,0.3);
+    padding-left: 0.5rem;
+    white-space: nowrap;
+  }
+  .timer-widget .timer-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0;
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1;
+  }
+  .timer-widget .timer-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.7);
+  }
+  .timer-widget .timer-btn.btn-stop {
+    border-color: rgba(255,180,180,0.6);
+  }
+  .timer-widget .timer-btn.btn-stop:hover {
+    background: rgba(255,100,100,0.3);
+  }
+  .timer-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 0 0 50px 50px;
+    transition: width 0.5s ease;
+  }
+  .timer-wrapper {
+    position: relative;
+  }
+
+  /* ---- модальное окно настроек ---- */
+  .timer-settings-modal .modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  .timer-settings-modal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+  }
+  .timer-settings-modal .btn-close {
+    filter: brightness(0) invert(1);
+  }
+  .timer-settings-modal .modal-body label {
+    font-weight: 600;
+    color: #333;
+  }
+  .timer-history-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+  }
+  .timer-history-row:last-child { border-bottom: none; }
+  .timer-history-row .dur {
+    font-weight: 600;
+    color: #667eea;
+  }
+</style>
+
+<!-- Виджет таймера -->
+<div class="timer-wrapper d-none d-lg-flex justify-content-center" style="position:absolute; left:50%; transform:translateX(-50%);">
+  <div class="timer-widget" id="timerWidget">
+    <button class="timer-btn" id="timerToggle" title="Старт / Стоп">
+      <span id="toggleIcon">&#9654;</span>
+    </button>
+    <span class="timer-clock" id="timerClock">00:00:00</span>
+    <span class="timer-total" id="timerTotal">Сегодня: 00:00</span>
+    <button class="timer-btn" id="timerSettingsBtn" title="Настройки">
+      &#9881;
+    </button>
+    <div class="timer-progress" id="timerProgress" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- Мобильный таймер (внутри коллапса навбара) -->
+<div class="d-lg-none mt-2" id="timerMobile">
+  <div class="timer-widget" style="width:100%; justify-content:center;">
+    <button class="timer-btn" id="timerToggleMobile" title="Старт / Стоп">
+      <span id="toggleIconMobile">&#9654;</span>
+    </button>
+    <span class="timer-clock" id="timerClockMobile">00:00:00</span>
+    <span class="timer-total" id="timerTotalMobile">Сегодня: 00:00</span>
+    <button class="timer-btn" id="timerSettingsBtnMobile" title="Настройки">
+      &#9881;
+    </button>
+  </div>
+</div>
+
+<!-- Модальное окно настроек -->
+<div class="modal fade timer-settings-modal" id="timerSettingsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Настройки таймера</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="dailyGoalInput" class="form-label">Цель на день (часы)</label>
+          <input type="number" class="form-control" id="dailyGoalInput" min="0.5" max="24" step="0.5" value="8">
+        </div>
+        <hr>
+        <h6>Последние сессии</h6>
+        <div id="timerHistoryList"><small class="text-muted">Загрузка...</small></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsBtn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const API = {
+    status:   '{% url "timer_status" %}',
+    start:    '{% url "timer_start" %}',
+    stop:     '{% url "timer_stop" %}',
+    settings: '{% url "timer_settings_get" %}',
+    saveSettings: '{% url "timer_settings_save" %}',
+    history:  '{% url "timer_history" %}',
+  };
+
+  let isRunning = false;
+  let elapsed = 0;
+  let todayTotal = 0;
+  let todayGoal = 28800; // 8ч в секундах
+  let tickInterval = null;
+
+  // DOM-элементы (десктоп)
+  const clockEl     = document.getElementById('timerClock');
+  const totalEl     = document.getElementById('timerTotal');
+  const toggleBtn   = document.getElementById('timerToggle');
+  const toggleIcon  = document.getElementById('toggleIcon');
+  const settingsBtn = document.getElementById('timerSettingsBtn');
+  const progressEl  = document.getElementById('timerProgress');
+  // мобильные
+  const clockM      = document.getElementById('timerClockMobile');
+  const totalM      = document.getElementById('timerTotalMobile');
+  const toggleBtnM  = document.getElementById('timerToggleMobile');
+  const toggleIconM = document.getElementById('toggleIconMobile');
+  const settingsBtnM= document.getElementById('timerSettingsBtnMobile');
+  // модалка
+  const goalInput   = document.getElementById('dailyGoalInput');
+  const saveBtn     = document.getElementById('saveSettingsBtn');
+  const historyList = document.getElementById('timerHistoryList');
+  let settingsModal;
+
+  // ---------- утилиты ----------
+
+  function fmt(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+  function fmtShort(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (h > 0) return h + 'ч ' + String(m).padStart(2,'0') + 'м';
+    return m + 'м ' + String(Math.floor(sec % 60)).padStart(2,'0') + 'с';
+  }
+
+  // ---------- рендер ----------
+
+  function render() {
+    const display = fmt(elapsed);
+    const totalDisplay = fmtShort(todayTotal);
+    clockEl.textContent = display;
+    totalEl.textContent  = 'Сегодня: ' + totalDisplay;
+    clockM.textContent  = display;
+    totalM.textContent  = 'Сегодня: ' + totalDisplay;
+
+    if (isRunning) {
+      toggleIcon.textContent  = '\u25A0';   // ■
+      toggleIconM.textContent = '\u25A0';
+      toggleBtn.classList.add('btn-stop');
+      toggleBtnM.classList.add('btn-stop');
+      clockEl.classList.add('running');
+      clockM.classList.add('running');
+    } else {
+      toggleIcon.textContent  = '\u25B6';   // ▶
+      toggleIconM.textContent = '\u25B6';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtnM.classList.remove('btn-stop');
+      clockEl.classList.remove('running');
+      clockM.classList.remove('running');
+    }
+
+    // прогресс-бар
+    const pct = Math.min((todayTotal / todayGoal) * 100, 100);
+    progressEl.style.width = pct + '%';
+  }
+
+  // ---------- тик ----------
+
+  function startTick() {
+    if (tickInterval) return;
+    tickInterval = setInterval(function() {
+      elapsed += 1;
+      todayTotal += 1;
+      render();
+    }, 1000);
+  }
+  function stopTick() {
+    clearInterval(tickInterval);
+    tickInterval = null;
+  }
+
+  // ---------- API ----------
+
+  async function fetchStatus() {
+    try {
+      const r = await fetch(API.status);
+      const d = await r.json();
+      isRunning  = d.is_running;
+      elapsed    = d.elapsed;
+      todayTotal = d.today_total;
+      todayGoal  = d.today_goal;
+      render();
+      if (isRunning) startTick(); else stopTick();
+    } catch(e) { console.error('timer status error', e); }
+  }
+
+  async function doStart() {
+    try {
+      const r = await fetch(API.start, {method:'POST', headers:{'X-CSRFToken': getCsrf()}});
+      if (!r.ok) return;
+      const d = await r.json();
+      isRunning = d.is_running;
+      elapsed   = d.elapsed;
+      todayTotal= d.today_total;
+      render(); startTick();
+    } catch(e) { console.error('timer start error', e); }
+  }
+
+  async function doStop() {
+    try {
+      const r = await fetch(API.stop, {method:'POST', headers:{'X-CSRFToken': getCsrf()}});
+      if (!r.ok) return;
+      const d = await r.json();
+      isRunning = d.is_running;
+      elapsed   = 0;
+      todayTotal= d.today_total;
+      render(); stopTick();
+    } catch(e) { console.error('timer stop error', e); }
+  }
+
+  function getCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  // ---------- настройки ----------
+
+  async function loadSettings() {
+    try {
+      const r = await fetch(API.settings);
+      const d = await r.json();
+      goalInput.value = d.daily_goal_hours;
+      todayGoal = d.daily_goal_hours * 3600;
+    } catch(e) {}
+  }
+
+  async function saveSettings() {
+    try {
+      const r = await fetch(API.saveSettings, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'X-CSRFToken': getCsrf()},
+        body: JSON.stringify({daily_goal_hours: parseFloat(goalInput.value)})
+      });
+      if (r.ok) {
+        todayGoal = parseFloat(goalInput.value) * 3600;
+        render();
+        settingsModal.hide();
+      }
+    } catch(e) {}
+  }
+
+  async function loadHistory() {
+    try {
+      const r = await fetch(API.history);
+      const d = await r.json();
+      if (!d.sessions.length) {
+        historyList.innerHTML = '<small class="text-muted">Нет записей</small>';
+        return;
+      }
+      historyList.innerHTML = d.sessions.map(function(s) {
+        const dur = fmtShort(s.duration);
+        const end = s.end || '...';
+        const running = s.is_running ? ' <span class="badge bg-success">активна</span>' : '';
+        return '<div class="timer-history-row">'
+          + '<span>' + s.date + ' ' + s.start + ' – ' + end + running + '</span>'
+          + '<span class="dur">' + dur + '</span>'
+          + '</div>';
+      }).join('');
+    } catch(e) {
+      historyList.innerHTML = '<small class="text-danger">Ошибка загрузки</small>';
+    }
+  }
+
+  // ---------- события ----------
+
+  function onToggle(e) { e.preventDefault(); isRunning ? doStop() : doStart(); }
+  toggleBtn.addEventListener('click', onToggle);
+  toggleBtnM.addEventListener('click', onToggle);
+
+  settingsBtn.addEventListener('click', function() {
+    loadSettings();
+    loadHistory();
+    settingsModal.show();
+  });
+  settingsBtnM.addEventListener('click', function() {
+    loadSettings();
+    loadHistory();
+    settingsModal.show();
+  });
+  saveBtn.addEventListener('click', saveSettings);
+
+  // ---------- init ----------
+
+  // ждём Bootstrap JS
+  function initModal() {
+    settingsModal = new bootstrap.Modal(document.getElementById('timerSettingsModal'));
+  }
+  if (typeof bootstrap !== 'undefined') {
+    initModal();
+  } else {
+    window.addEventListener('load', initModal);
+  }
+
+  fetchStatus();
+})();
+</script>

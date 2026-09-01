@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'workouts',
+    'work_timer',
 ]
 
 MIDDLEWARE = [
@@ -110,6 +111,10 @@ TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 
 USE_TZ = True
+
+
+# CSRF trusted origins (для AJAX с других страниц)
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']
 
 
 # Static files (CSS, JavaScript, Images)
