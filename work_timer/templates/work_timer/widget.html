@@ -1,4 +1,3 @@
-<!-- Только визуал таймера (включается внутри навбара) -->
 {% load static %}
 
 <style>
@@ -76,12 +75,79 @@
   #faviconDynamic.blink {
     animation: favicon-blink 2s ease-in-out infinite;
   }
+  .timer-modal .modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  .timer-modal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+  }
+  .timer-modal .btn-close {
+    filter: brightness(0) invert(1);
+  }
+  .timer-modal .modal-body label {
+    font-weight: 600;
+    color: #333;
+  }
+  .timer-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+    gap: 0.5rem;
+  }
+  .timer-history-row:last-child { border-bottom: none; }
+  .timer-history-row .dur {
+    font-weight: 600;
+    color: #667eea;
+    white-space: nowrap;
+  }
+  .timer-history-row .session-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .timer-history-row .session-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .timer-history-row .session-actions button {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: #666;
+    transition: all 0.15s;
+    padding: 0;
+  }
+  .timer-history-row .session-actions .btn-edit:hover {
+    background: #eef;
+    border-color: #667eea;
+    color: #667eea;
+  }
+  .timer-history-row .session-actions .btn-del:hover {
+    background: #fee;
+    border-color: #dc3545;
+    color: #dc3545;
+  }
 </style>
 
 <!-- Динамическая фавиконка -->
 <link id="faviconDynamic" rel="icon" type="image/svg+xml" href="">
 
-<!-- Десктопный таймер (по центру навбара) -->
+<!-- Десктопный таймер -->
 <div class="d-none d-lg-flex justify-content-center" style="position:absolute; left:50%; transform:translateX(-50%); z-index:10;">
   <div class="timer-widget" style="position:relative;" id="timerWidget">
     <button class="timer-btn" id="timerToggle" type="button" title="Старт / Стоп">
@@ -110,3 +176,257 @@
     <div class="timer-progress" id="timerProgressMobile" style="width:0%"></div>
   </div>
 </div>
+
+<!-- Модалка настроек -->
+<div class="modal fade timer-modal" id="timerSettingsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Настройки таймера</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="dailyGoalInput" class="form-label">Цель на день (часы)</label>
+          <input type="number" class="form-control" id="dailyGoalInput" min="0.5" max="24" step="0.5" value="8">
+        </div>
+        <hr>
+        <h6>Последние сессии</h6>
+        <div id="timerHistoryList"><small class="text-muted">Загрузка...</small></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsBtn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка редактирования сессии -->
+<div class="modal fade timer-modal" id="timerEditModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать сессию</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editSessionId">
+        <div class="mb-3">
+          <label for="editStartTime" class="form-label">Начало</label>
+          <input type="datetime-local" class="form-control" id="editStartTime">
+        </div>
+        <div class="mb-3">
+          <label for="editEndTime" class="form-label">Конец</label>
+          <input type="datetime-local" class="form-control" id="editEndTime">
+          <div class="form-text">Оставьте пустым, если сессия ещё идёт</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-primary" id="saveEditBtn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+window._timerReady = false;
+(function() {
+  var SVG_DUMBBELL = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="18" y="4" width="10" height="22" rx="3" fill="%23f59e0b" stroke="%23dc2626" stroke-width="2.5"/><rect x="36" y="4" width="10" height="22" rx="3" fill="%23f59e0b" stroke="%23dc2626" stroke-width="2.5"/><rect x="8" y="10" width="10" height="10" rx="2" fill="%23ef4444"/><rect x="46" y="10" width="10" height="10" rx="2" fill="%23ef4444"/><rect x="28" y="18" width="8" height="28" rx="2" fill="%236366f1"/></svg>';
+  var SVG_GREEN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="%2322c55e" stroke="%2316a34a" stroke-width="3"/></svg>';
+
+  var faviconEl = document.getElementById('faviconDynamic');
+  function setFaviconRunning() {
+    if (faviconEl) { faviconEl.href = 'data:image/svg+xml,' + encodeURIComponent(SVG_GREEN); faviconEl.classList.remove('blink'); }
+  }
+  function setFaviconIdle() {
+    if (faviconEl) { faviconEl.href = 'data:image/svg+xml,' + encodeURIComponent(SVG_DUMBBELL); faviconEl.classList.add('blink'); }
+  }
+
+  var API = {
+    status:  '{% url "timer_status" %}',
+    start:   '{% url "timer_start" %}',
+    stop:    '{% url "timer_stop" %}',
+    settings:'{% url "timer_settings_get" %}',
+    saveSet: '{% url "timer_settings_save" %}',
+    history: '{% url "timer_history" %}',
+    sessionEdit: '{% url "session_edit" 0 %}'.replace('0/', ''),
+    sessionDel:  '{% url "session_delete" 0 %}'.replace('0/', '')
+  };
+
+  var isRunning = false, elapsed = 0, todayTotal = 0, todayGoal = 28800, tickInterval = null;
+  var clockEl, totalEl, toggleBtn, toggleIcon, settingsBtn, progressEl;
+  var clockM, totalM, toggleBtnM, toggleIconM, settingsBtnM, progressM;
+  var goalInput, saveBtn, historyList, editIdEl, editStartEl, editEndEl, saveEditBtn;
+  var settingsModal, editModal;
+
+  function initDOM() {
+    clockEl     = document.getElementById('timerClock');
+    totalEl     = document.getElementById('timerTotal');
+    toggleBtn   = document.getElementById('timerToggle');
+    toggleIcon  = document.getElementById('toggleIcon');
+    settingsBtn = document.getElementById('timerSettingsBtn');
+    progressEl  = document.getElementById('timerProgress');
+    clockM      = document.getElementById('timerClockMobile');
+    totalM      = document.getElementById('timerTotalMobile');
+    toggleBtnM  = document.getElementById('timerToggleMobile');
+    toggleIconM = document.getElementById('toggleIconMobile');
+    settingsBtnM= document.getElementById('timerSettingsBtnMobile');
+    progressM   = document.getElementById('timerProgressMobile');
+    goalInput   = document.getElementById('dailyGoalInput');
+    saveBtn     = document.getElementById('saveSettingsBtn');
+    historyList = document.getElementById('timerHistoryList');
+    editIdEl    = document.getElementById('editSessionId');
+    editStartEl = document.getElementById('editStartTime');
+    editEndEl   = document.getElementById('editEndTime');
+    saveEditBtn = document.getElementById('saveEditBtn');
+  }
+
+  function fmt(s) {
+    var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=Math.floor(s%60);
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+  }
+  function fmtShort(s) {
+    var h=Math.floor(s/3600), m=Math.floor((s%3600)/60);
+    if(h>0) return h+'\u0447 '+String(m).padStart(2,'0')+'\u043c';
+    return m+'\u043c '+String(Math.floor(s%60)).padStart(2,'0')+'\u0441';
+  }
+  function getCsrf() { var m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:''; }
+  function postJ(url,data) { return fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},body:JSON.stringify(data)}); }
+  function postF(url) { return fetch(url,{method:'POST',headers:{'X-CSRFToken':getCsrf()}}); }
+
+  function render() {
+    var d=fmt(elapsed), td='\u0421\u0435\u0433\u043e\u0434\u043d\u044f: '+fmtShort(todayTotal);
+    if(clockEl) clockEl.textContent=d;
+    if(totalEl) totalEl.textContent=td;
+    if(clockM) clockM.textContent=d;
+    if(totalM) totalM.textContent=td;
+    if(isRunning){
+      if(toggleIcon)toggleIcon.textContent='\u25A0';
+      if(toggleIconM)toggleIconM.textContent='\u25A0';
+      if(toggleBtn)toggleBtn.classList.add('btn-stop');
+      if(toggleBtnM)toggleBtnM.classList.add('btn-stop');
+      if(clockEl)clockEl.classList.add('running');
+      if(clockM)clockM.classList.add('running');
+      setFaviconRunning();
+    } else {
+      if(toggleIcon)toggleIcon.textContent='\u25B6';
+      if(toggleIconM)toggleIconM.textContent='\u25B6';
+      if(toggleBtn)toggleBtn.classList.remove('btn-stop');
+      if(toggleBtnM)toggleBtnM.classList.remove('btn-stop');
+      if(clockEl)clockEl.classList.remove('running');
+      if(clockM)clockM.classList.remove('running');
+      setFaviconIdle();
+    }
+    var pct=Math.min((todayTotal/todayGoal)*100,100);
+    if(progressEl)progressEl.style.width=pct+'%';
+    if(progressM)progressM.style.width=pct+'%';
+  }
+
+  function startTick(){if(tickInterval)return;tickInterval=setInterval(function(){elapsed+=1;todayTotal+=1;render();},1000);}
+  function stopTick(){clearInterval(tickInterval);tickInterval=null;}
+
+  function fetchStatus(){
+    fetch(API.status).then(function(r){return r.json();}).then(function(d){
+      isRunning=d.is_running;elapsed=d.elapsed;todayTotal=d.today_total;todayGoal=d.today_goal;
+      render();if(isRunning)startTick();else stopTick();
+    }).catch(function(e){console.error('timer:',e);});
+  }
+  function doStart(){
+    postF(API.start).then(function(r){return r.json();}).then(function(d){
+      isRunning=d.is_running;elapsed=d.elapsed;todayTotal=d.today_total;render();startTick();
+    }).catch(function(e){console.error('start:',e);});
+  }
+  function doStop(){
+    postF(API.stop).then(function(r){return r.json();}).then(function(d){
+      isRunning=d.is_running;elapsed=0;todayTotal=d.today_total;render();stopTick();
+    }).catch(function(e){console.error('stop:',e);});
+  }
+
+  function loadSettings(){
+    fetch(API.settings).then(function(r){return r.json();}).then(function(d){
+      if(goalInput)goalInput.value=d.daily_goal_hours;todayGoal=d.daily_goal_hours*3600;
+    }).catch(function(){});
+  }
+  function saveSettings(){
+    postJ(API.saveSet,{daily_goal_hours:parseFloat(goalInput.value)}).then(function(r){
+      if(r.ok){todayGoal=parseFloat(goalInput.value)*3600;render();if(settingsModal)settingsModal.hide();}
+    }).catch(function(){});
+  }
+  function loadHistory(){
+    fetch(API.history).then(function(r){return r.json();}).then(function(d){
+      if(!historyList)return;
+      if(!d.sessions.length){historyList.innerHTML='<small class="text-muted">Нет записей</small>';return;}
+      historyList.innerHTML=d.sessions.map(function(s){
+        var dur=fmtShort(s.duration),end=s.end||'...';
+        var badge=s.is_running?' <span class="badge bg-success">активна</span>':'';
+        return '<div class="timer-history-row" data-id="'+s.id+'">'
+          +'<span class="session-info">'+s.date+' '+s.start+' &ndash; '+end+badge+'</span>'
+          +'<span class="dur">'+dur+'</span>'
+          +'<span class="session-actions">'
+          +'<button type="button" class="btn-edit" title="Редактировать">&#9998;</button>'
+          +'<button type="button" class="btn-del" title="Удалить">&#128465;</button>'
+          +'</span></div>';
+      }).join('');
+    }).catch(function(){if(historyList)historyList.innerHTML='<small class="text-danger">Ошибка</small>';});
+  }
+
+  function openEditModal(id,sf,ef){if(!editIdEl)return;editIdEl.value=id;editStartEl.value=sf||'';editEndEl.value=ef||'';if(editModal)editModal.show();}
+  function saveEdit(){
+    var id=editIdEl?editIdEl.value:'';
+    postJ(API.sessionEdit+id+'/edit/',{start_time:editStartEl.value,end_time:editEndEl.value}).then(function(r){
+      if(r.ok){if(editModal)editModal.hide();loadHistory();fetchStatus();}
+    }).catch(function(){});
+  }
+  function deleteSession(id){
+    if(!confirm('Удалить эту сессию?'))return;
+    postF(API.sessionDel+id+'/delete/').then(function(r){if(r.ok){loadHistory();fetchStatus();}}).catch(function(){});
+  }
+
+  if(historyList){
+    historyList.addEventListener('click',function(e){
+      var btn=e.target.closest('button');if(!btn)return;
+      var row=btn.closest('.timer-history-row');if(!row)return;
+      var id=row.getAttribute('data-id');
+      fetch(API.history).then(function(r){return r.json();}).then(function(d){
+        var s=d.sessions.find(function(x){return String(x.id)===id;});
+        if(!s)return;
+        if(btn.classList.contains('btn-edit'))openEditModal(s.id,s.start_full,s.end_full);
+        else if(btn.classList.contains('btn-del'))deleteSession(s.id);
+      });
+    });
+  }
+
+  function onToggle(e){e.preventDefault();e.stopPropagation();if(isRunning){doStop();}else{doStart();}}
+  function openSettings(){loadSettings();loadHistory();if(settingsModal)settingsModal.show();}
+
+  function bindEvents(){
+    if(toggleBtn)toggleBtn.addEventListener('click',onToggle);
+    if(toggleBtnM)toggleBtnM.addEventListener('click',onToggle);
+    if(settingsBtn)settingsBtn.addEventListener('click',openSettings);
+    if(settingsBtnM)settingsBtnM.addEventListener('click',openSettings);
+    if(saveBtn)saveBtn.addEventListener('click',saveSettings);
+    if(saveEditBtn)saveEditBtn.addEventListener('click',saveEdit);
+  }
+
+  function initModals(){
+    settingsModal = new bootstrap.Modal(document.getElementById('timerSettingsModal'));
+    editModal = new bootstrap.Modal(document.getElementById('timerEditModal'));
+  }
+
+  function boot(){
+    initDOM();
+    bindEvents();
+    if (typeof bootstrap !== 'undefined') {
+      initModals();
+    } else {
+      window.addEventListener('load', initModals);
+    }
+    fetchStatus();
+    window._timerReady = true;
+  }
+
+  boot();
+})();
+</script>
