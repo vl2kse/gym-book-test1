@@ -6,6 +6,7 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
 
     # Подходы
+    path("set/quick-add/", views.set_quick_add, name="set_quick_add"),
     path("set/add/", views.set_add, name="set_add"),
     path("set/<int:pk>/delete/", views.set_delete, name="set_delete"),
     path("set/history/", views.set_history, name="set_history"),

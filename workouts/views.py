@@ -67,7 +67,30 @@ def dashboard(request):
 
 
 # ============================================================
-# Добавить подходы
+# Быстрое добавление подхода (из дашборда)
+# ============================================================
+
+def set_quick_add(request):
+    if request.method == "POST":
+        exercise_id = request.POST.get("exercise_id")
+        reps = request.POST.get("reps", "0")
+        weight = request.POST.get("weight", "0")
+        date_str = request.POST.get("date", "")
+
+        if exercise_id and int(reps) > 0:
+            from datetime import datetime
+            set_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else timezone.now().date()
+            Set.objects.create(
+                date=set_date,
+                exercise_id=exercise_id,
+                reps=int(reps),
+                weight=float(weight) or 0,
+            )
+        return redirect("dashboard")
+
+
+# ============================================================
+# Добавить подходы (полная страница из дашборда)
 # ============================================================
 
 def set_add(request):
