@@ -22,7 +22,7 @@
             <tbody>
                 {% for s in group.list %}
                 <tr class="set-row">
-                    <td><a href="{% url 'exercise_progress' s.exercise.id %}">{{ s.exercise.name }}</a></td>
+                    <td><a href="{% url 'exercise_progress' s.exercise.id %}">{{ s.exercise.display_name }}</a></td>
                     <td class="text-center">{{ s.reps }}</td>
                     <td class="text-center">{% if s.weight > 0 %}{{ s.weight }} кг{% else %}-{% endif %}</td>
                     <td>

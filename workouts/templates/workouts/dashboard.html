@@ -55,7 +55,7 @@
                 <tbody>
                     {% for s in today_sets %}
                     <tr class="set-row">
-                        <td>{{ s.exercise.name }}</td>
+                        <td>{{ s.exercise.display_name }}</td>
                         <td class="text-center">{{ s.reps }}</td>
                         <td class="text-center">{% if s.weight > 0 %}{{ s.weight }} кг{% else %}-{% endif %}</td>
                     </tr>
@@ -91,7 +91,7 @@
             <div class="list-group">
                 {% for ex in exercises %}
                 <a href="{% url 'exercise_progress' ex.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                    {{ ex.name }}
+                    {{ ex.display_name }}
                     <span class="badge bg-primary rounded-pill">{{ ex.sets.count }}</span>
                 </a>
                 {% endfor %}

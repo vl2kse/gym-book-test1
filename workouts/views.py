@@ -38,7 +38,7 @@ def dashboard(request):
                 daily[s['date']] = s['total'] or 0
 
         chart_datasets.append({
-            'label': ex.name,
+            'label': ex.display_name,
             'data': list(daily.values()),
             'borderColor': colors[i % len(colors)],
             'backgroundColor': colors[i % len(colors)] + '20',

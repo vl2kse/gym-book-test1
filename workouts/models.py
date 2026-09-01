@@ -10,8 +10,14 @@ class Exercise(models.Model):
         verbose_name = "Упражнение"
         verbose_name_plural = "Упражнения"
 
-    def __str__(self):
+    @property
+    def display_name(self):
+        if self.description:
+            return f"{self.name} ({self.description})"
         return self.name
+
+    def __str__(self):
+        return self.display_name
 
 
 class Set(models.Model):
