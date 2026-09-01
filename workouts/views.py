@@ -20,31 +20,61 @@ def dashboard(request):
     today_sets = Set.objects.filter(date=today).select_related("exercise")
     today_total = sum(s.reps for s in today_sets)
 
-    # График: по горизонтали даты, по вертикали сумма повторений за день, по каждому упражнению
-    all_dates = Set.objects.dates('date', 'day', order='ASC')
-    date_labels = [d.isoformat() for d in all_dates]
+    # Разделяем упражнения: с весом и без
+    bw_exercises = []  # bodyweight (вес = 0)
+    wt_exercises = []  # weighted (вес > 0)
+    for ex in exercises:
+        has_weight = Set.objects.filter(exercise=ex, weight__gt=0).exists()
+        if has_weight:
+            wt_exercises.append(ex)
+        else:
+            bw_exercises.append(ex)
 
-    chart_datasets = []
+    # Все даты
+    all_dates_bw = Set.objects.filter(exercise__in=bw_exercises).dates('date', 'day', order='ASC') if bw_exercises else []
+    all_dates_wt = Set.objects.filter(exercise__in=wt_exercises).dates('date', 'day', order='ASC') if wt_exercises else []
+
+    bw_date_labels = [d.isoformat() for d in all_dates_bw]
+    wt_date_labels = [d.isoformat() for d in all_dates_wt]
+
     colors = ['#667eea', '#764ba2', '#e74c3c', '#2ecc71', '#f39c12', '#1abc9c', '#e67e22', '#3498db']
 
-    for i, ex in enumerate(exercises):
-        # Сумма повторений по дням
+    # Чарт 1: без веса — сумма повторений по дням
+    bw_datasets = []
+    for i, ex in enumerate(bw_exercises):
         daily = OrderedDict()
-        for d in all_dates:
+        for d in all_dates_bw:
             daily[d] = 0
         sets_ex = Set.objects.filter(exercise=ex).values('date').annotate(total=models.Sum('reps'))
         for s in sets_ex:
             if s['date'] in daily:
                 daily[s['date']] = s['total'] or 0
-
-        chart_datasets.append({
+        bw_datasets.append({
             'label': ex.display_name,
             'data': list(daily.values()),
             'borderColor': colors[i % len(colors)],
             'backgroundColor': colors[i % len(colors)] + '20',
-            'fill': False,
-            'tension': 0.3,
-            'pointRadius': 4,
+            'fill': False, 'tension': 0.3, 'pointRadius': 4,
+        })
+
+    # Чарт 2: с весом — сумма (повторения * вес) по дням = общая поднятая масса
+    wt_datasets = []
+    for i, ex in enumerate(wt_exercises):
+        daily = OrderedDict()
+        for d in all_dates_wt:
+            daily[d] = 0
+        sets_ex = Set.objects.filter(exercise=ex, weight__gt=0).values('date').annotate(
+            total_mass=models.Sum(models.F('reps') * models.F('weight'))
+        )
+        for s in sets_ex:
+            if s['date'] in daily:
+                daily[s['date']] = float(s['total_mass'] or 0)
+        wt_datasets.append({
+            'label': ex.display_name,
+            'data': list(daily.values()),
+            'borderColor': colors[i % len(colors)],
+            'backgroundColor': colors[i % len(colors)] + '20',
+            'fill': False, 'tension': 0.3, 'pointRadius': 4,
         })
 
     # Вес тела (последние 14 записей)
@@ -58,8 +88,10 @@ def dashboard(request):
         "today_total": today_total,
         "today": today,
         "exercises": exercises,
-        "date_labels": json.dumps(date_labels),
-        "chart_datasets": json.dumps(chart_datasets),
+        "bw_date_labels": json.dumps(bw_date_labels),
+        "bw_datasets": json.dumps(bw_datasets),
+        "wt_date_labels": json.dumps(wt_date_labels),
+        "wt_datasets": json.dumps(wt_datasets),
         "weight_dates": json.dumps(weight_dates),
         "weight_values": json.dumps(weight_values),
     }

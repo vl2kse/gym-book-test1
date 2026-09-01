@@ -3,50 +3,64 @@
 {% block title %}GymBook - Дашборд{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Дашборд</h1>
+<h1 class="mb-3">Дашборд</h1>
 
-<!-- Статистика -->
-<div class="row g-3 mb-4">
+<!-- Статистика — компактная -->
+<div class="row g-2 mb-4">
     <div class="col-md-4">
-        <div class="card stat-card">
-            <div class="stat-value">{{ total_sets }}</div>
+        <div class="card stat-card py-2">
+            <div class="stat-value fs-4">{{ total_sets }}</div>
             <div class="stat-label">Подходов всего</div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card stat-card">
-            <div class="stat-value">{{ today_total }}</div>
+        <div class="card stat-card py-2">
+            <div class="stat-value fs-4">{{ today_total }}</div>
             <div class="stat-label">Повторений сегодня</div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card stat-card">
-            <div class="stat-value">{{ today_sets|length }}</div>
+        <div class="card stat-card py-2">
+            <div class="stat-value fs-4">{{ today_sets|length }}</div>
             <div class="stat-label">Подходов сегодня</div>
         </div>
     </div>
 </div>
 
-<div class="row g-4">
-    <!-- Главный график -->
-    <div class="col-lg-8">
-        <div class="card p-3">
-            <h5 class="mb-3">Прогресс по упражнениям</h5>
-            {% if date_labels %}
-            <div class="chart-container">
-                <canvas id="mainChart"></canvas>
-            </div>
-            {% else %}
-                <p class="text-muted">Нет данных. Добавьте подходы через панель справа.</p>
-            {% endif %}
-        </div>
+<!-- Чарт 1: упражнения без веса -->
+{% if bw_date_labels %}
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Упражнения с собственным весом (повторения)</h5>
+    <div class="chart-container" style="height:280px">
+        <canvas id="bwChart"></canvas>
     </div>
+</div>
+{% endif %}
 
+<!-- Чарт 2: упражнения с весом -->
+{% if wt_date_labels %}
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Упражнения с весом (поднятая масса, кг)</h5>
+    <div class="chart-container" style="height:280px">
+        <canvas id="wtChart"></canvas>
+    </div>
+</div>
+{% endif %}
+
+{% if not bw_date_labels and not wt_date_labels %}
+<div class="card p-4 mb-4">
+    <p class="text-muted">Нет данных. Добавьте подходы через <a href="{% url 'set_add' %}">эту страницу</a> или кнопки ниже.</p>
+</div>
+{% endif %}
+
+<!-- Сегодня + Быстрое добавление + Вес тела -->
+<div class="row g-4">
     <!-- Сегодня -->
     <div class="col-lg-4">
         <div class="card p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Сегодня ({{ today }})</h5>
+                <a href="{% url 'set_add' %}" class="btn btn-primary btn-sm">Добавить</a>
             </div>
             {% if today_sets %}
             <table class="table table-sm mb-0">
@@ -65,88 +79,41 @@
                 <p class="text-muted">Сегодня нет подходов.</p>
             {% endif %}
         </div>
-    </div>
-</div>
 
-<!-- Вес тела -->
-{% if weight_dates and weight_values %}
-<div class="row g-4 mt-1">
-    <div class="col-lg-6">
+        <!-- Быстрое добавление -->
+        <div class="card p-3 mt-4">
+            <h5 class="mb-3">Быстрое добавление</h5>
+            <div class="list-group">
+                {% for ex in exercises %}
+                <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                    <a href="{% url 'exercise_progress' ex.id %}" class="text-decoration-none">{{ ex.display_name }}</a>
+                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="openQuickAdd({{ ex.id }}, '{{ ex.display_name|escapejs }}')">+</button>
+                </div>
+                {% endfor %}
+                {% if not exercises %}
+                    <p class="text-muted">Нет упражнений. <a href="{% url 'exercise_add' %}">Добавить</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Вес тела -->
+    <div class="col-lg-8">
         <div class="card p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Вес тела</h5>
                 <a href="{% url 'bodyweight_add' %}" class="btn btn-outline-primary btn-sm">+ Записать</a>
             </div>
-            <div class="chart-container" style="height:200px">
+            {% if weight_dates and weight_values %}
+            <div class="chart-container" style="height:280px">
                 <canvas id="weightChart"></canvas>
             </div>
-        </div>
-    </div>
-
-    <!-- Упражнения с быстрым добавлением -->
-    <div class="col-lg-6">
-        <div class="card p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Упражнения</h5>
-                <div>
-                    <a href="{% url 'set_add' %}" class="btn btn-primary btn-sm">Добавить</a>
-                </div>
-            </div>
-            <div class="list-group">
-                {% for ex in exercises %}
-                <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <a href="{% url 'exercise_progress' ex.id %}" class="text-decoration-none">{{ ex.display_name }}</a>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary rounded-pill">{{ ex.sets.count }}</span>
-                        <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1" onclick="openQuickAdd({{ ex.id }}, '{{ ex.display_name|escapejs }}')" title="Быстрое добавление">+</button>
-                    </div>
-                </div>
-                {% endfor %}
-                {% if not exercises %}
-                    <p class="text-muted">Нет упражнений. <a href="{% url 'exercise_add' %}">Добавить</a></p>
-                {% endif %}
-            </div>
+            {% else %}
+                <p class="text-muted">Нет записей. <a href="{% url 'bodyweight_add' %}">Записать вес</a></p>
+            {% endif %}
         </div>
     </div>
 </div>
-{% endif %}
-
-{% if not weight_dates and not weight_values %}
-<!-- Упражнения — fullWidth если нет графика веса -->
-<div class="row g-4 mt-1">
-    <div class="col-lg-6">
-        <div class="card p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Упражнения</h5>
-                <a href="{% url 'set_add' %}" class="btn btn-primary btn-sm">Добавить</a>
-            </div>
-            <div class="list-group">
-                {% for ex in exercises %}
-                <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <a href="{% url 'exercise_progress' ex.id %}" class="text-decoration-none">{{ ex.display_name }}</a>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary rounded-pill">{{ ex.sets.count }}</span>
-                        <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1" onclick="openQuickAdd({{ ex.id }}, '{{ ex.display_name|escapejs }}')" title="Быстрое добавление">+</button>
-                    </div>
-                </div>
-                {% endfor %}
-                {% if not exercises %}
-                    <p class="text-muted">Нет упражнений. <a href="{% url 'exercise_add' %}">Добавить</a></p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Вес тела</h5>
-                <a href="{% url 'bodyweight_add' %}" class="btn btn-outline-primary btn-sm">+ Записать</a>
-            </div>
-            <p class="text-muted">Нет записей. <a href="{% url 'bodyweight_add' %}">Записать вес</a></p>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <!-- Модалка быстрого добавления -->
 <div class="modal fade" id="quickAddModal" tabindex="-1">
@@ -183,19 +150,29 @@
 {% endblock %}
 
 {% block extra_scripts %}
-{% if date_labels %}
+{% if bw_date_labels %}
 <script>
-new Chart(document.getElementById('mainChart'), {
+new Chart(document.getElementById('bwChart'), {
     type: 'line',
-    data: {
-        labels: {{ date_labels|safe }},
-        datasets: {{ chart_datasets|safe }}
-    },
+    data: { labels: {{ bw_date_labels|safe }}, datasets: {{ bw_datasets|safe }} },
     options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'Сумма повторений' } } }
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Повторения' } } }
+    }
+});
+</script>
+{% endif %}
+
+{% if wt_date_labels %}
+<script>
+new Chart(document.getElementById('wtChart'), {
+    type: 'line',
+    data: { labels: {{ wt_date_labels|safe }}, datasets: {{ wt_datasets|safe }} },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Кг' } } }
     }
 });
 </script>
@@ -208,10 +185,8 @@ new Chart(document.getElementById('weightChart'), {
     data: {
         labels: {{ weight_dates|safe }},
         datasets: [{
-            label: 'Вес (кг)',
-            data: {{ weight_values|safe }},
-            borderColor: '#667eea',
-            backgroundColor: 'rgba(102,126,234,0.1)',
+            label: 'Вес (кг)', data: {{ weight_values|safe }},
+            borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.1)',
             fill: true, tension: 0.3, pointRadius: 4,
         }]
     },
