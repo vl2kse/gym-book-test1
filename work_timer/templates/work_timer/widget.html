@@ -383,20 +383,6 @@ window._timerReady = false;
     postF(API.sessionBase+id+'/delete/').then(function(r){if(r.ok){loadHistory();fetchStatus();}}).catch(function(){});
   }
 
-  if(historyList){
-    historyList.addEventListener('click',function(e){
-      var btn=e.target.closest('button');if(!btn)return;
-      var row=btn.closest('.timer-history-row');if(!row)return;
-      var id=row.getAttribute('data-id');
-      fetch(API.history).then(function(r){return r.json();}).then(function(d){
-        var s=d.sessions.find(function(x){return String(x.id)===id;});
-        if(!s)return;
-        if(btn.classList.contains('btn-edit'))openEditModal(s.id,s.start_full,s.end_full);
-        else if(btn.classList.contains('btn-del'))deleteSession(s.id);
-      });
-    });
-  }
-
   function onToggle(e){e.preventDefault();e.stopPropagation();if(isRunning){doStop();}else{doStart();}}
   function openSettings(){loadSettings();loadHistory();if(settingsModal)settingsModal.show();}
 
@@ -407,6 +393,19 @@ window._timerReady = false;
     if(settingsBtnM)settingsBtnM.addEventListener('click',openSettings);
     if(saveBtn)saveBtn.addEventListener('click',saveSettings);
     if(saveEditBtn)saveEditBtn.addEventListener('click',saveEdit);
+    if(historyList){
+      historyList.addEventListener('click',function(e){
+        var btn=e.target.closest('button');if(!btn)return;
+        var row=btn.closest('.timer-history-row');if(!row)return;
+        var id=row.getAttribute('data-id');
+        fetch(API.history).then(function(r){return r.json();}).then(function(d){
+          var s=d.sessions.find(function(x){return String(x.id)===id;});
+          if(!s)return;
+          if(btn.classList.contains('btn-edit'))openEditModal(s.id,s.start_full,s.end_full);
+          else if(btn.classList.contains('btn-del'))deleteSession(s.id);
+        });
+      });
+    }
   }
 
   function initModals(){
