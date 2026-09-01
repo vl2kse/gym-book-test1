@@ -1,4 +1,5 @@
 import json
+import logging
 from django.http import JsonResponse
 from django.utils.timezone import now, localtime
 from django.views.decorators.http import require_POST, require_GET
@@ -7,6 +8,8 @@ from django.db import transaction
 from datetime import timedelta, date, datetime
 
 from .models import WorkSession, TimerSettings
+
+log = logging.getLogger(__name__)
 
 
 # ---------- helpers ----------
@@ -54,6 +57,7 @@ def _status_payload():
 @ensure_csrf_cookie
 def timer_status(request):
     """Текущее состояние таймера и суммарное время за сегодня."""
+    log.info("TIMER STATUS called, method=%s", request.method)
     return JsonResponse(_status_payload())
 
 
@@ -61,10 +65,13 @@ def timer_status(request):
 @csrf_exempt
 def timer_start(request):
     """Начать новую сессию. Если уже есть активная — ничего не делаем."""
+    log.info("TIMER START called, method=%s, body=%s", request.method, request.body)
     if _running_session() is not None:
+        log.warning("TIMER START: already running")
         return JsonResponse({'error': 'Таймер уже запущен'}, status=409)
 
-    WorkSession.objects.create()
+    session = WorkSession.objects.create()
+    log.info("TIMER START: created session id=%s", session.id)
     return JsonResponse(_status_payload())
 
 
@@ -72,12 +79,15 @@ def timer_start(request):
 @csrf_exempt
 def timer_stop(request):
     """Остановить текущую сессию."""
+    log.info("TIMER STOP called, method=%s, body=%s", request.method, request.body)
     session = _running_session()
     if session is None:
+        log.warning("TIMER STOP: no running session")
         return JsonResponse({'error': 'Нет активной сессии'}, status=409)
 
     session.end_time = now()
     session.save(update_fields=['end_time'])
+    log.info("TIMER STOP: stopped session id=%s", session.id)
     return JsonResponse(_status_payload())
 
 

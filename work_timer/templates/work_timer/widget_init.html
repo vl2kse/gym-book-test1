@@ -419,6 +419,7 @@
   function onToggle(e) {
     e.preventDefault();
     e.stopPropagation();
+    alert('TIMER CLICK! isRunning=' + isRunning + ' URL=' + (isRunning ? API.stop : API.start));
     if (isRunning) { doStop(); } else { doStart(); }
   }
 

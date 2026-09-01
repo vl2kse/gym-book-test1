@@ -154,7 +154,7 @@ def set_delete(request, pk):
     s = get_object_or_404(Set, pk=pk)
     if request.method == "POST":
         s.delete()
-    return redirect("dashboard")
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
 
 
 # ============================================================
