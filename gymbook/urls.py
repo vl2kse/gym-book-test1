@@ -5,5 +5,5 @@ from django.views.generic import RedirectView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(url='/workouts/', permanent=False)),
-    path('workouts/', include(('workouts.urls', 'workouts'))),
+    path('workouts/', include('workouts.urls')),
 ]

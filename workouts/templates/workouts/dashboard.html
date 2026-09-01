@@ -33,7 +33,7 @@
         <div class="card p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Последняя тренировка</h5>
-                <a href="{% url 'workouts:workout_new' %}" class="btn btn-primary btn-sm">+ Новая</a>
+                <a href="{% url 'workout_new' %}" class="btn btn-primary btn-sm">+ Новая</a>
             </div>
             {% if last_workout %}
                 <p class="text-muted mb-2">{{ last_workout.date }}</p>
@@ -55,7 +55,7 @@
                     </tbody>
                 </table>
             {% else %}
-                <p class="text-muted">Тренировок пока нет. <a href="{% url 'workouts:workout_new' %}">Добавить первую</a></p>
+                <p class="text-muted">Тренировок пока нет. <a href="{% url 'workout_new' %}">Добавить первую</a></p>
             {% endif %}
         </div>
     </div>
@@ -65,14 +65,14 @@
         <div class="card p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Вес тела</h5>
-                <a href="{% url 'workouts:bodyweight_add' %}" class="btn btn-outline-primary btn-sm">+ Записать</a>
+                <a href="{% url 'bodyweight_add' %}" class="btn btn-outline-primary btn-sm">+ Записать</a>
             </div>
             {% if weight_dates and weight_values %}
             <div class="chart-container">
                 <canvas id="weightChart"></canvas>
             </div>
             {% else %}
-                <p class="text-muted">Нет записей. <a href="{% url 'workouts:bodyweight_add' %}">Добавить</a></p>
+                <p class="text-muted">Нет записей. <a href="{% url 'bodyweight_add' %}">Добавить</a></p>
             {% endif %}
         </div>
     </div>
@@ -85,7 +85,7 @@
     <div class="col-lg-6">
         <div class="card p-3">
             <h6 class="mb-2">
-                <a href="{% url 'workouts:exercise_progress' item.exercise.id %}">{{ item.exercise.name }}</a>
+                <a href="{% url 'exercise_progress' item.exercise.id %}">{{ item.exercise.name }}</a>
             </h6>
             <div class="chart-container" style="height:180px">
                 <canvas id="miniChart{{ forloop.counter }}"></canvas>
