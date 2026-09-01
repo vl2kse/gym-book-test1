@@ -251,8 +251,7 @@ window._timerReady = false;
     settings:'{% url "timer_settings_get" %}',
     saveSet: '{% url "timer_settings_save" %}',
     history: '{% url "timer_history" %}',
-    sessionEdit: '{% url "session_edit" 0 %}'.replace('0/', ''),
-    sessionDel:  '{% url "session_delete" 0 %}'.replace('0/', '')
+    sessionBase: '{% url "session_edit" 0 %}'.replace(/0\/.*/, '')
   };
 
   var isRunning = false, elapsed = 0, todayTotal = 0, todayGoal = 28800, tickInterval = null;
@@ -375,13 +374,13 @@ window._timerReady = false;
   function openEditModal(id,sf,ef){if(!editIdEl)return;editIdEl.value=id;editStartEl.value=sf||'';editEndEl.value=ef||'';if(editModal)editModal.show();}
   function saveEdit(){
     var id=editIdEl?editIdEl.value:'';
-    postJ(API.sessionEdit+id+'/edit/',{start_time:editStartEl.value,end_time:editEndEl.value}).then(function(r){
+    postJ(API.sessionBase+id+'/edit/',{start_time:editStartEl.value,end_time:editEndEl.value}).then(function(r){
       if(r.ok){if(editModal)editModal.hide();loadHistory();fetchStatus();}
     }).catch(function(){});
   }
   function deleteSession(id){
     if(!confirm('Удалить эту сессию?'))return;
-    postF(API.sessionDel+id+'/delete/').then(function(r){if(r.ok){loadHistory();fetchStatus();}}).catch(function(){});
+    postF(API.sessionBase+id+'/delete/').then(function(r){if(r.ok){loadHistory();fetchStatus();}}).catch(function(){});
   }
 
   if(historyList){
