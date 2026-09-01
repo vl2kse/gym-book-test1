@@ -4,6 +4,7 @@ import json
 from collections import OrderedDict
 from datetime import timedelta
 
+from django.db import models
 from .models import Exercise, Set, BodyWeight
 
 
