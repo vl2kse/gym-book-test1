@@ -144,9 +144,6 @@
   }
 </style>
 
-<!-- Динамическая фавиконка -->
-<link id="faviconDynamic" rel="icon" type="image/svg+xml" href="">
-
 <!-- Десктопный таймер -->
 <div class="d-none d-lg-flex justify-content-center" style="position:absolute; left:50%; transform:translateX(-50%); z-index:10;">
   <div class="timer-widget" style="position:relative;" id="timerWidget">
@@ -233,8 +230,8 @@
 <script>
 window._timerReady = false;
 (function() {
-  var SVG_DUMBBELL = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="18" y="4" width="10" height="22" rx="3" fill="%23f59e0b" stroke="%23dc2626" stroke-width="2.5"/><rect x="36" y="4" width="10" height="22" rx="3" fill="%23f59e0b" stroke="%23dc2626" stroke-width="2.5"/><rect x="8" y="10" width="10" height="10" rx="2" fill="%23ef4444"/><rect x="46" y="10" width="10" height="10" rx="2" fill="%23ef4444"/><rect x="28" y="18" width="8" height="28" rx="2" fill="%236366f1"/></svg>';
-  var SVG_GREEN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="%2322c55e" stroke="%2316a34a" stroke-width="3"/></svg>';
+  var SVG_DUMBBELL = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="20" width="16" height="24" rx="4" fill="#FFD700" stroke="#E74C3C" stroke-width="2.5"/><rect x="44" y="20" width="16" height="24" rx="4" fill="#FFD700" stroke="#E74C3C" stroke-width="2.5"/><rect x="20" y="28" width="24" height="8" rx="3" fill="#E74C3C"/></svg>';
+  var SVG_GREEN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#22c55e" stroke="#16a34a" stroke-width="3"/></svg>';
 
   var faviconEl = document.getElementById('faviconDynamic');
   function setFaviconRunning() {
